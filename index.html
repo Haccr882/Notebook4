@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notebook — AI Study Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper: #F6F1E4;
+    --paper-line: #DED4B8;
+    --ink: #23301F;
+    --ink-soft: #5B6653;
+    --spine: #8A5A32;
+    --accent: #B8722E;
+    --accent-soft: #E7C9A0;
+    --ok: #4C7A5E;
+    --danger: #A94438;
+    --bubble-user: #E7C9A0;
+    --bubble-ai: #FFFDF8;
+    --sidebar: #2E241A;
+    --sidebar-text: #E9DCC4;
+    --sidebar-hover: #3C3024;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display:flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ---- Sidebar ---- */
+  #sidebar{
+    width: 268px;
+    flex-shrink: 0;
+    background: var(--sidebar);
+    color: var(--sidebar-text);
+    display:flex;
+    flex-direction: column;
+    transition: margin-left 0.2s ease;
+  }
+  #sidebar.collapsed{ margin-left: -268px; }
+  .sidebar-top{
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  .sidebar-top-row{
+    display:flex;
+    align-items:center;
+    gap: 0.5rem;
+  }
+  .new-chat-btn{
+    flex: 1;
+    width:100%;
+    display:flex; align-items:center; gap:0.5rem;
+    background: transparent;
+    border: 1.5px solid rgba(233,220,196,0.3);
+    color: var(--sidebar-text);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.7rem 0.9rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .new-chat-btn:hover{ background: var(--sidebar-hover); }
+  #closeSidebarBtn{
+    display: none;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1.5px solid rgba(233,220,196,0.3);
+    color: var(--sidebar-text);
+    width: 38px; height: 38px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+  #sidebarBackdrop{
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 15;
+  }
+  .chat-list{
+    flex:1;
+    overflow-y: auto;
+    padding: 0.6rem;
+  }
+  .chat-item{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.65rem 0.7rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.86rem;
+    color: var(--sidebar-text);
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .chat-item:hover{ background: var(--sidebar-hover); }
+  .chat-item.active{ background: var(--accent); color: #201408; }
+  .chat-item .del{
+    opacity: 0;
+    background: none; border: none; color: inherit; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0 0.2rem;
+    flex-shrink:0;
+  }
+  .chat-item:hover .del{ opacity: 0.7; }
+  .chat-item .del:hover{ opacity: 1; }
+  .sidebar-bottom{
+    padding: 0.9rem 1rem 1.1rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: rgba(233,220,196,0.6);
+  }
+  .sidebar-bottom button{
+    background: none; border: none; color: inherit;
+    text-decoration: underline; cursor: pointer;
+    font-family: inherit; font-size: inherit; padding: 0;
+  }
+  .help-btn{
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    text-decoration: none !important;
+    font-size: 0.82rem !important;
+    color: var(--sidebar-text) !important;
+  }
+
+  .modal-backdrop{
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 40;
+  }
+  .modal-backdrop.visible{ display: block; }
+  .modal{
+    display: none;
+    position: fixed;
+    z-index: 41;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(420px, 92vw);
+    max-height: 82vh;
+    overflow-y: auto;
+    background: var(--paper);
+    border: 1.5px solid var(--paper-line);
+    border-radius: 10px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+  }
+  .modal.visible{ display: block; }
+  .modal-header{
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1rem 1.2rem;
+    border-bottom: 2px solid var(--ink);
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .modal-header button{
+    background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--ink);
+  }
+  .modal-body{ padding: 1rem 1.2rem 1.3rem; }
+  .modal-body details{
+    margin-bottom: 0.7rem;
+    font-size: 0.88rem;
+  }
+  .modal-body summary{
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .modal-body details p{
+    color: var(--ink-soft);
+    line-height: 1.55;
+    margin: 0.4rem 0 0;
+  }
+  .modal-body hr{ border: none; border-top: 1px solid var(--paper-line); margin: 1rem 0; }
+  .feedback-label{ font-size: 0.85rem; color: var(--ink-soft); margin: 0 0 0.5rem; }
+  .modal-body textarea, .modal-body input{
+    width: 100%;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    padding: 0.6rem 0.7rem;
+    border: 1.5px solid var(--ink);
+    border-radius: 5px;
+    background: #FFFDF8;
+    margin-bottom: 0.6rem;
+    resize: vertical;
+  }
+  #submitFeedbackBtn{
+    width: 100%;
+    padding: 0.7rem;
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    border-radius: 5px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  #submitFeedbackBtn:disabled{ opacity: 0.5; }
+  #feedbackMsg{ font-size: 0.82rem; margin-top: 0.6rem; min-height: 1.1rem; }
+  #feedbackMsg.ok{ color: var(--ok); }
+  #feedbackMsg.err{ color: var(--danger); }
+
+  /* Ad slot — inactive placeholder. Once AdSense is approved, paste the
+     ad unit script/ins tag inside #adSlot and it will appear here,
+     between the composer and the footer hint, without touching layout. */
+  #adSlot{
+    display: none; /* becomes visible once real ad code is added */
+    margin: 0.6rem 1.2rem 0;
+    min-height: 50px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  /* ---- Main chat area ---- */
+  #main{
+    flex: 1;
+    display:flex;
+    flex-direction: column;
+    min-width: 0;
+    background: var(--paper);
+    background-image: linear-gradient(var(--paper-line) 1px, transparent 1px);
+    background-size: 100% 2.4rem;
+  }
+  #topbar{
+    display:flex;
+    align-items:center;
+    gap: 0.8rem;
+    padding: 0.9rem 1.2rem;
+    border-bottom: 1px solid var(--paper-line);
+    background: rgba(246,241,228,0.92);
+    backdrop-filter: blur(4px);
+  }
+  #menuBtn{
+    background:none; border: 1.5px solid var(--ink); border-radius: var(--radius);
+    width: 36px; height: 36px; cursor:pointer; color: var(--ink);
+    font-family: monospace; font-size: 1rem;
+    flex-shrink:0;
+  }
+  .topbar-title{
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 1.15rem;
+  }
+  .topbar-title span{ color: var(--accent); }
+  .quota-pill{
+    margin-left: auto;
+    font-family:'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    border: 1px solid var(--paper-line);
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .mode-switch{
+    display:flex;
+    gap: 0.3rem;
+    background: #fff;
+    border: 1px solid var(--paper-line);
+    border-radius: 999px;
+    padding: 0.2rem;
+  }
+  .mode-btn{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.02em;
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .mode-btn.active{ background: var(--ink); color: var(--paper); }
+
+  #messages{
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.6rem 1.2rem 1rem;
+  }
+  .msg-row{
+    display:flex;
+    margin-bottom: 1.1rem;
+  }
+  .msg-row.user{ justify-content: flex-end; }
+  .bubble{
+    max-width: min(640px, 82%);
+    padding: 0.85rem 1.05rem;
+    border-radius: 14px;
+    line-height: 1.6;
+    font-size: 0.96rem;
+    white-space: pre-wrap;
+  }
+  .msg-row.user .bubble{
+    background: var(--bubble-user);
+    color: var(--ink);
+    border-bottom-right-radius: 4px;
+  }
+  .msg-row.ai .bubble{
+    background: var(--bubble-ai);
+    border: 1px solid var(--paper-line);
+    border-bottom-left-radius: 4px;
+  }
+  .bubble .ai-label{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    display:block;
+    margin-bottom: 0.35rem;
+  }
+  .bubble-actions{
+    margin-top: 0.6rem;
+    display:flex; gap: 0.5rem;
+  }
+  .bubble-actions button{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: transparent;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    border-radius: var(--radius);
+    padding: 0.35rem 0.6rem;
+    cursor: pointer;
+  }
+  .bubble-actions button:hover{ background: var(--ink); color: var(--paper); }
+
+  .sheet-doc{
+    background: #FFFDF8;
+    border: 1px solid var(--paper-line);
+    border-radius: 10px;
+    padding: 1.4rem 1.3rem 1.6rem;
+    overflow: hidden;
+  }
+  .sheet-gradient-bar{
+    height: 6px;
+    margin: -1.4rem -1.3rem 1.1rem;
+  }
+  .sheet-title{
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.25;
+    margin: 0 0 1.3rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 3px solid var(--ink);
+    color: var(--ink);
+  }
+  .sheet-entry{
+    display:flex;
+    gap: 0.9rem;
+    padding: 0 0 1.3rem 0.9rem;
+    margin-bottom: 1.3rem;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--paper-line);
+    border-left: 3px solid var(--accent-soft);
+  }
+  .sheet-entry:last-child{ margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .sheet-certificate{
+    display: block;
+    border: none;
+    padding: 0 0 1.3rem;
+    margin-bottom: 1.3rem;
+  }
+  .sheet-certificate-inner{
+    border: 3px double;
+    border-radius: 10px;
+    padding: 2.2rem 1.6rem;
+    text-align: center;
+  }
+  .sheet-certificate-title{
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 1.6rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 1rem;
+  }
+  .sheet-certificate-seal{
+    width: 3rem; height: 3rem;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    margin: 0 auto 1.1rem;
+  }
+  .sheet-certificate-content{
+    font-family: 'Source Serif 4', serif;
+    font-size: 1.02rem;
+    line-height: 2;
+    white-space: pre-wrap;
+    max-width: 46ch;
+    margin: 0 auto;
+  }
+  .sheet-num{
+    font-family:'JetBrains Mono', monospace;
+    font-weight:700;
+    font-size: 1rem;
+    color: #fff;
+    background: var(--accent);
+    min-width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+    margin-top: 0.1rem;
+  }
+  .sheet-entry-body{ flex:1; min-width: 0; }
+  .sheet-heading{
+    font-family: 'Source Serif 4', serif;
+    font-weight: 700;
+    font-size: 1.12rem;
+    line-height: 1.35;
+    margin: 0 0 0.45rem;
+    color: var(--ink);
+  }
+  .sheet-explain{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    font-style: normal;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    margin: 0 0 0.6rem;
+    line-height: 1.5;
+  }
+  .sheet-content{
+    font-size: 0.96rem;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    margin: 0;
+    color: var(--ink);
+  }
+  .formula-box{
+    display: inline-block;
+    background: var(--accent-soft);
+    color: #5A3B18;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.35rem 0.7rem;
+    border-radius: 5px;
+    margin: 0.15rem 0;
+  }
+  .sheet-diagram{
+    margin-top: 0.8rem;
+    padding: 0.9rem;
+    background: #FBF7EC;
+    border: 1px solid var(--paper-line);
+    border-radius: 6px;
+    max-width: 380px;
+  }
+  .sheet-diagram svg{ width: 100%; height: auto; display: block; }
+
+  .typing{
+    display:flex; gap:0.3rem; align-items:center; padding: 0.4rem 0;
+  }
+  .typing-status{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    margin: 0.3rem 0 0;
+  }
+  .typing span{
+    width: 6px; height:6px; border-radius:50%;
+    background: var(--accent);
+    animation: bounce 1.1s infinite;
+  }
+  .typing span:nth-child(2){ animation-delay: 0.15s; }
+  .typing span:nth-child(3){ animation-delay: 0.3s; }
+  @keyframes bounce{ 0%,60%,100%{ transform: translateY(0); opacity:0.5; } 30%{ transform: translateY(-4px); opacity:1; } }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  .empty-state{
+    height:100%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center;
+    color: var(--ink-soft);
+    padding: 2rem;
+  }
+  .empty-state h2{
+    font-family:'Source Serif 4', serif;
+    color: var(--ink);
+    font-size: 1.6rem;
+    margin: 0 0 0.5rem;
+  }
+  .empty-state p{ max-width: 42ch; font-size: 0.92rem; line-height:1.6; }
+  .chips{
+    display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; margin-top:1.2rem;
+  }
+  .chip{
+    font-family:'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    border: 1px solid var(--paper-line);
+    background: #fff;
+    padding: 0.5rem 0.8rem;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--ink);
+  }
+  .chip:hover{ border-color: var(--accent); color: var(--accent); }
+
+  #inputBar{
+    padding: 0.9rem 1.2rem 1.2rem;
+    border-top: 1px solid var(--paper-line);
+    background: rgba(246,241,228,0.92);
+  }
+  .composer{
+    display:flex;
+    align-items: flex-end;
+    gap: 0.6rem;
+    background: #FFFDF8;
+    border: 1.5px solid var(--ink);
+    border-radius: 14px;
+    padding: 0.5rem 0.5rem 0.5rem 1rem;
+  }
+  #promptInput{
+    flex:1;
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.96rem;
+    max-height: 160px;
+    padding: 0.5rem 0;
+    color: var(--ink);
+  }
+  #sendBtn{
+    background: var(--ink);
+    color: var(--paper);
+    border: none;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.1rem;
+    flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #sendBtn:disabled{ opacity: 0.4; cursor: not-allowed; }
+  .composer-hint{
+    text-align:center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--ink-soft);
+    margin-top: 0.5rem;
+  }
+
+  @media (max-width: 720px){
+    #sidebar{ position: fixed; z-index: 20; height:100%; }
+    #sidebar:not(.collapsed){ margin-left:0; box-shadow: 8px 0 24px rgba(0,0,0,0.25); }
+    #sidebar.collapsed{ margin-left: -268px; }
+    #closeSidebarBtn{ display: block; }
+    #sidebar:not(.collapsed) ~ #sidebarBackdrop{ display: block; }
+  }
+
+  /* ---- Android/phone-width tuning (typical phones: ~360-430px) ----
+     Goal: every control stays a comfortable thumb-sized tap target, text
+     stays readable without pinch-zoom, and inputs use a 16px+ font so
+     Chrome/Android and mobile Safari don't auto-zoom the page on focus. */
+  @media (max-width: 480px){
+    #topbar{ flex-wrap: wrap; gap: 0.5rem; padding: 0.7rem 0.8rem; }
+    .topbar-title{ font-size: 1.02rem; }
+    .mode-switch{ order: 3; width: 100%; }
+    .mode-btn{ flex: 1; text-align: center; font-size: 0.68rem; padding: 0.5rem 0.4rem; }
+    .quota-pill{ font-size: 0.66rem; padding: 0.25rem 0.5rem; }
+
+    #messages{ padding: 1.1rem 0.7rem 0.6rem; }
+    .bubble{ max-width: 90%; font-size: 0.92rem; padding: 0.75rem 0.9rem; }
+
+    .sheet-doc{ padding: 1rem 0.85rem 1.2rem; }
+    .sheet-title{ font-size: 1.22rem; margin-bottom: 1rem; padding-bottom: 0.7rem; }
+    .sheet-entry{ gap: 0.6rem; padding-left: 0.6rem; margin-bottom: 1rem; padding-bottom: 1rem; }
+    .sheet-num{ min-width: 1.8rem; height: 1.8rem; font-size: 0.86rem; }
+    .sheet-heading{ font-size: 1rem; }
+    .sheet-content{ font-size: 0.9rem; }
+
+    #inputBar{ padding: 0.7rem 0.8rem 1rem; }
+    /* 16px stops iOS Safari/Chrome-on-Android from auto-zooming the page
+       when the textarea gets focus — anything smaller than 16px triggers it. */
+    #promptInput{ font-size: 16px; }
+    #sendBtn{ width: 42px; height: 42px; } /* comfortable thumb target */
+
+    .empty-state h2{ font-size: 1.3rem; }
+    .empty-state p{ font-size: 0.88rem; }
+    .chip{ font-size: 0.72rem; padding: 0.45rem 0.7rem; }
+  }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="sidebar-top">
+    <div class="sidebar-top-row">
+      <button class="new-chat-btn" id="newChatBtn">+ New chat</button>
+      <button id="closeSidebarBtn" aria-label="Close menu">✕</button>
+    </div>
+  </div>
+  <div class="chat-list" id="chatList"></div>
+  <div class="sidebar-bottom">
+    <button id="helpBtn" class="help-btn">💬 Help &amp; Feedback</button>
+    Notebook v2 · chats saved on this device only ·
+    <button id="clearAllBtn">clear all</button>
+  </div>
+</aside>
+
+<div id="helpBackdrop" class="modal-backdrop"></div>
+<div id="helpModal" class="modal">
+  <div class="modal-header">
+    <span>Help &amp; Feedback</span>
+    <button id="closeHelpBtn" aria-label="Close">✕</button>
+  </div>
+  <div class="modal-body">
+    <details open>
+      <summary>How many can I generate per day?</summary>
+      <p>5 free PDF generations (notes or specimen papers) per day, plus 20 doubt-chat messages per day — separate limits, both resetting at midnight.</p>
+    </details>
+    <details>
+      <summary>What's the difference between "Notes/Paper" and "Doubt Chat"?</summary>
+      <p>"Notes/Paper" plans and writes a full structured, downloadable document. "Doubt Chat" is a normal back-and-forth conversation for quick questions — no PDF, just a clear explanation.</p>
+    </details>
+    <details>
+      <summary>Why did a section say "couldn't be generated"?</summary>
+      <p>Rarely, all AI providers fail for one section. Try regenerating — it usually works on a second attempt.</p>
+    </details>
+    <details>
+      <summary>How do I download as PDF?</summary>
+      <p>Tap "Download as PDF" under any generated document — your browser's print dialog will open, where you can choose "Save as PDF". If the saved PDF looks black-and-white, open "More settings" in that dialog and make sure "Background graphics" is turned on — that's what keeps the colours and highlight boxes on the page.</p>
+    </details>
+    <hr>
+    <p class="feedback-label">Something else? Send feedback or report a bug:</p>
+    <textarea id="feedbackText" rows="3" placeholder="What happened, or what would you like to see?"></textarea>
+    <input type="text" id="feedbackContact" placeholder="Your email/phone (optional, if you want a reply)">
+    <button id="submitFeedbackBtn">Send</button>
+    <p id="feedbackMsg"></p>
+  </div>
+</div>
+
+<div id="sidebarBackdrop"></div>
+
+<div id="main">
+  <div id="topbar">
+    <button id="menuBtn">☰</button>
+    <div class="topbar-title">Note<span>book</span></div>
+    <div class="mode-switch" id="modeSwitch">
+      <button class="mode-btn" id="modeNotesBtn" data-mode="notes">📝 Notes/Paper</button>
+      <button class="mode-btn" id="modeChatBtn" data-mode="chat">💬 Doubt Chat</button>
+    </div>
+    <div class="quota-pill" id="quotaPill"></div>
+  </div>
+
+  <div id="messages"></div>
+
+  <div id="adSlot">
+    <!-- Ad-ready placeholder: once you have an AdSense account (needs a
+         guardian, same as the payment discussion), paste your <ins> ad
+         unit tag here and set #adSlot { display: block } in the CSS
+         above — nothing else on the page needs to change. -->
+  </div>
+
+  <div id="inputBar">
+    <div class="composer">
+      <textarea id="promptInput" rows="1" placeholder="Ask for notes or a specimen paper..."></textarea>
+      <button id="sendBtn">↑</button>
+    </div>
+    <p class="composer-hint" id="composerHint"></p>
+  </div>
+</div>
+
+<script>
+// Notes/specimen-paper generation and doubt-chat are two SEPARATE quotas —
+// generating 5 PDFs today doesn't touch your 20 chat messages, and vice
+// versa (server-side limits in api/generate.js and api/chat.js match these).
+const PDF_FREE_DAILY_LIMIT = 5;
+const PDF_PREMIUM_DAILY_LIMIT = 10;
+const CHAT_FREE_DAILY_LIMIT = 20;
+const CHAT_PREMIUM_DAILY_LIMIT = 60;
+function isPremiumDevice(){ return !!localStorage.getItem("nb_premium_token"); }
+function currentDailyLimit(kind){
+  if(kind === "chat") return isPremiumDevice() ? CHAT_PREMIUM_DAILY_LIMIT : CHAT_FREE_DAILY_LIMIT;
+  return isPremiumDevice() ? PDF_PREMIUM_DAILY_LIMIT : PDF_FREE_DAILY_LIMIT;
+}
+const todayKey = (kind) => `nb_count_${kind === "chat" ? "chat_" : ""}` + new Date().toISOString().slice(0,10);
+
+/* ---------- storage helpers ---------- */
+function getCount(kind){ return parseInt(localStorage.getItem(todayKey(kind)) || "0", 10); }
+function incCount(kind){ localStorage.setItem(todayKey(kind), String(getCount(kind)+1)); renderQuota(); }
+
+function loadChats(){
+  try{ return JSON.parse(localStorage.getItem("nb_chats") || "[]"); }
+  catch(e){ return []; }
+}
+function saveChats(chats){ localStorage.setItem("nb_chats", JSON.stringify(chats)); }
+
+let chats = loadChats();
+let activeId = null;
+
+function newChat(mode){
+  const chat = { id: Date.now().toString(36), title: "New chat", messages: [], mode: mode || "notes" };
+  chats.unshift(chat);
+  saveChats(chats);
+  activeId = chat.id;
+  renderChatList();
+  renderModeSwitch();
+  renderMessages();
+}
+
+function getActiveChat(){ return chats.find(c => c.id === activeId); }
+
+function renderChatList(){
+  const list = document.getElementById("chatList");
+  list.innerHTML = "";
+  chats.forEach(c => {
+    const item = document.createElement("div");
+    item.className = "chat-item" + (c.id === activeId ? " active" : "");
+    item.innerHTML = `<span>${escapeHTML(c.title)}</span><button class="del" title="Delete">✕</button>`;
+    item.addEventListener("click", (e) => {
+      if(e.target.classList.contains("del")){
+        chats = chats.filter(x => x.id !== c.id);
+        saveChats(chats);
+        if(activeId === c.id){ activeId = chats[0] ? chats[0].id : null; }
+        renderChatList();
+        renderMessages();
+        renderModeSwitch();
+        renderQuota();
+        return;
+      }
+      activeId = c.id;
+      renderChatList();
+      renderMessages();
+      renderModeSwitch();
+      renderQuota();
+      if(window.innerWidth <= 720) document.getElementById("sidebar").classList.add("collapsed");
+    });
+    list.appendChild(item);
+  });
+}
+
+function extractJSON(text){
+  let cleaned = text.trim().replace(/^```json/i, "").replace(/^```/,"").replace(/```$/,"").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if(start === -1 || end === -1) throw new Error("Could not find JSON in response.");
+  cleaned = cleaned.slice(start, end+1);
+  return JSON.parse(cleaned);
+}
+
+function validateSheet(sheet){
+  if(!sheet || !Array.isArray(sheet.entries) || sheet.entries.length === 0){
+    return "Response had no entries.";
+  }
+  for(let i=0;i<sheet.entries.length;i++){
+    const e = sheet.entries[i];
+    if(e.number !== i+1) return `Numbering broke at entry ${i+1} (got ${e.number}).`;
+    if(!e.heading || !e.content) return `Entry ${i+1} is missing content.`;
+  }
+  return null;
+}
+
+/* ---------- topper-notes-style palette ----------
+   Gives every section its own colour and, for the sections that should
+   visually stand out (Overview, Quick Revision Summary), a larger heading
+   and a highlighted box — so a document reads like a real student's
+   colour-coded notes instead of one flat block of uniform text. Matched
+   by keyword first (so "Formulas" is always purple, everywhere), falling
+   back to cycling through the palette by position for anything else
+   (e.g. "Section A", "Answer Key — Section B" on a specimen paper). */
+const PALETTE_CYCLE = [
+  { accent: "#B8722E", dark: "#5A3B18", soft: "#F3E4CC" }, // amber (original accent)
+  { accent: "#3B6E8F", dark: "#1F3F52", soft: "#DCE9F0" }, // slate blue
+  { accent: "#4C7A5E", dark: "#1F3D2E", soft: "#DCEBE1" }, // green
+  { accent: "#6B4E8E", dark: "#3A2650", soft: "#E7DEF0" }, // purple
+  { accent: "#2E7D74", dark: "#164A44", soft: "#D9EEEB" }, // teal
+  { accent: "#A9862E", dark: "#4F3D14", soft: "#F1E7CC" }, // gold
+  { accent: "#A94438", dark: "#5C1F19", soft: "#F2DBD8" }, // red
+];
+const KEYWORD_PALETTE = [
+  [/overview|instructions/i, PALETTE_CYCLE[1]],
+  [/key concept/i, PALETTE_CYCLE[0]],
+  [/definition/i, PALETTE_CYCLE[2]],
+  [/formula|law/i, PALETTE_CYCLE[3]],
+  [/worked example/i, PALETTE_CYCLE[4]],
+  [/common mistake/i, PALETTE_CYCLE[6]],
+  [/exam tip/i, PALETTE_CYCLE[5]],
+  [/quick revision|summary/i, PALETTE_CYCLE[1]],
+  // Project-report anchor sections
+  [/certificate/i, PALETTE_CYCLE[3]],
+  [/acknowledgement/i, PALETTE_CYCLE[4]],
+  [/^index$/i, PALETTE_CYCLE[1]],
+  [/introduction/i, PALETTE_CYCLE[2]],
+  [/conclusion/i, PALETTE_CYCLE[0]],
+  [/bibliography/i, PALETTE_CYCLE[6]],
+];
+function paletteForHeading(heading, index){
+  const h = heading || "";
+  for(const [pattern, pal] of KEYWORD_PALETTE){
+    if(pattern.test(h)) return pal;
+  }
+  return PALETTE_CYCLE[index % PALETTE_CYCLE.length];
+}
+// Sections that should visually anchor the document get a bigger heading
+// and a soft highlighted background instead of the plain entry style.
+function isHighlightSection(heading){
+  return /overview|quick revision|summary|introduction|conclusion/i.test(heading || "");
+}
+// The Certificate page of a project report gets its own decorative,
+// centred treatment — a real certificate doesn't look like a notes entry.
+function isCertificateSection(heading){
+  return /certificate/i.test(heading || "");
+}
+
+/* Builds the same styled markup for both the on-screen bubble and the PDF,
+   so what the student sees is exactly what gets downloaded. Every entry
+   gets its own colour (and, for anchor sections, a bigger heading + a
+   highlighted box) via inline styles, so the colours/sizes travel with the
+   markup into the print window as well — not just the live page. */
+function buildSheetHTML(sheet){
+  const entriesHTML = sheet.entries.map((e, i) => {
+    const pal = paletteForHeading(e.heading, i);
+    if(isCertificateSection(e.heading)){
+      // A real certificate is centred, bordered, and decorative — reusing
+      // the plain notes-entry layout for it would look wrong, so it gets
+      // its own markup: a double border "frame", centred serif text, and
+      // no number badge (a certificate is a page, not a numbered point).
+      return `
+    <div class="sheet-entry sheet-certificate" style="border-color:${pal.accent};">
+      <div class="sheet-certificate-inner" style="border-color:${pal.accent};">
+        <p class="sheet-certificate-title" style="color:${pal.dark};">${escapeHTML(e.heading)}</p>
+        <div class="sheet-certificate-seal" style="background:${pal.soft};border-color:${pal.accent};color:${pal.dark};">★</div>
+        <p class="sheet-certificate-content">${formatContent(e.content, pal)}</p>
+      </div>
+    </div>`;
+    }
+    const highlight = isHighlightSection(e.heading);
+    const headingSize = highlight ? "1.32rem" : "1.1rem";
+    const bodyStyle = highlight
+      ? `background:${pal.soft};border:1.5px solid ${pal.accent};border-radius:8px;padding:0.9rem 1rem;`
+      : "";
+    return `
+    <div class="sheet-entry" style="border-left-color:${pal.accent};">
+      <div class="sheet-num" style="background:${pal.accent};">${e.number}</div>
+      <div class="sheet-entry-body" style="${bodyStyle}">
+        <p class="sheet-heading" style="color:${pal.dark};font-size:${headingSize};">${escapeHTML(e.heading)}</p>
+        ${e.explanation ? `<p class="sheet-explain" style="color:${pal.accent};">${escapeHTML(e.explanation)}</p>` : ""}
+        <p class="sheet-content">${formatContent(e.content, pal)}</p>
+        ${e.diagram ? `<div class="sheet-diagram">${sanitizeSVG(e.diagram)}</div>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  // A thin gradient strip across the top, sampling colours from the
+  // sections actually used in this document — a quick visual signature
+  // that this document has real structure, not just one flat colour.
+  const usedColors = [...new Set(sheet.entries.map((e, i) => paletteForHeading(e.heading, i).accent))];
+  const gradientStyle = usedColors.length > 1
+    ? `background:linear-gradient(to right, ${usedColors.join(", ")});`
+    : `background:${usedColors[0] || "#B8722E"};`;
+  return `
+    <div class="sheet-doc">
+      <div class="sheet-gradient-bar" style="${gradientStyle}"></div>
+      <h2 class="sheet-title">${escapeHTML(sheet.title)}</h2>
+      ${entriesHTML}
+    </div>`;
+}
+
+/* Only allows a small, safe set of SVG tags/attributes coming from the AI —
+   strips anything else (scripts, event handlers, foreignObject, external
+   references) before it's ever inserted into the page. */
+function sanitizeSVG(raw){
+  try{
+    // Common LLM mistake: a stray unescaped "&" (e.g. "A & B") breaks
+    // strict XML parsing entirely, silently dropping the whole diagram.
+    // Escape any "&" that isn't already part of a valid entity first.
+    const safe = raw.replace(/&(?!(amp|lt|gt|quot|#\d+|#x[0-9a-fA-F]+);)/g, "&amp;");
+    const doc = new DOMParser().parseFromString(safe, "image/svg+xml");
+    const svg = doc.querySelector("svg");
+    if(!svg || doc.querySelector("parsererror")) return "";
+
+    const allowedTags = new Set(["svg","line","path","circle","rect","polygon","text","g","tspan"]);
+    const allowedAttrs = new Set(["viewbox","width","height","stroke","fill","x","y","x1","y1","x2","y2","cx","cy","r","d","points","font-size","text-anchor","stroke-width","transform"]);
+
+    function clean(node){
+      [...node.children].forEach(child => {
+        if(!allowedTags.has(child.tagName.toLowerCase())){
+          child.remove();
+          return;
+        }
+        [...child.attributes].forEach(attr => {
+          if(!allowedAttrs.has(attr.name.toLowerCase()) || attr.value.toLowerCase().includes("javascript:")){
+            child.removeAttribute(attr.name);
+          }
+        });
+        clean(child);
+      });
+    }
+    clean(svg);
+    svg.removeAttribute("width");
+    svg.removeAttribute("height");
+    if(!svg.getAttribute("viewBox")) svg.setAttribute("viewBox", "0 0 500 320");
+    return svg.outerHTML;
+  } catch(e){
+    return "";
+  }
+}
+
+/* Escapes the raw text first (safety), then turns light markdown into real
+   HTML: **bold** becomes <strong>, and lines that look like a question/part
+   label (e.g. "Q1.", "(a)", "OR") get bolded automatically so they stand
+   out from the surrounding answer text — this is what makes a paper read
+   like a real one instead of one flat block of text. */
+function formatContent(str, pal){
+  let safe = escapeHTML(str);
+  safe = safe.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  safe = safe.replace(/^(Q\d+\.|Answer:|Solution:|Note:|OR)(\s)/gm, "<strong>$1</strong>$2");
+
+  // Wrap short standalone formula-looking lines (e.g. "n = c/v") in a
+  // highlighted box, so formulas visually pop out like they would in a
+  // real teacher's notes instead of blending into paragraph text. Colour
+  // matches the section's own palette so formulas in a "Formulas" section
+  // look purple, in "Worked Examples" look teal, etc.
+  const boxStyle = pal ? ` style="background:${pal.soft};color:${pal.dark};"` : "";
+  const lines = safe.split("\n");
+  const formulaPattern = /^[A-Za-zθπ√°²³×÷±≤≥∠△\s\(\)\/\.,0-9\+\-=%'\u2080-\u2089\u2070-\u2079]{2,60}$/;
+  const formatted = lines.map(line => {
+    const trimmed = line.trim();
+    const plain = trimmed.replace(/<\/?strong>/g, "");
+    if(trimmed && plain.includes("=") && formulaPattern.test(plain)){
+      return `<span class="formula-box"${boxStyle}>${trimmed}</span>`;
+    }
+    return line;
+  });
+  return formatted.join("\n");
+}
+
+function escapeHTML(str){
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function getChatMode(){
+  const chat = getActiveChat();
+  return (chat && chat.mode) || "notes";
+}
+
+function renderQuota(){
+  const kind = getChatMode();
+  const used = getCount(kind);
+  const limit = currentDailyLimit(kind);
+  const unit = kind === "chat" ? "chat messages" : "generations";
+  document.getElementById("quotaPill").textContent = `${limit - used}/${limit} left today${isPremiumDevice() ? " · Premium" : ""}`;
+  document.getElementById("composerHint").textContent =
+    used >= limit ? "Daily limit reached — resets at midnight." : (isPremiumDevice() ? `${limit} ${unit}/day, Premium.` : `${limit} ${unit}/day, free.`);
+  document.getElementById("promptInput").placeholder =
+    kind === "chat" ? "Ask any doubt — I'll explain it..." : "Ask for notes or a specimen paper...";
+  document.getElementById("sendBtn").disabled = used >= limit;
+}
+
+function renderModeSwitch(){
+  const mode = getChatMode();
+  document.getElementById("modeNotesBtn").classList.toggle("active", mode !== "chat");
+  document.getElementById("modeChatBtn").classList.toggle("active", mode === "chat");
+}
+
+function renderMessages(){
+  const wrap = document.getElementById("messages");
+  const chat = getActiveChat();
+  if(!chat || chat.messages.length === 0){
+    const mode = getChatMode();
+    wrap.innerHTML = mode === "chat" ? `
+      <div class="empty-state">
+        <h2>Got a doubt? Ask away.</h2>
+        <p>This is a normal back-and-forth chat for clearing doubts — no PDF, no formatting, just a clear explanation. Switch to "Notes/Paper" mode above when you want a downloadable document instead.</p>
+        <div class="chips">
+          <button class="chip" data-fill="Why does ice float on water?">Why does ice float?</button>
+          <button class="chip" data-fill="What's the difference between speed and velocity?">Speed vs velocity?</button>
+          <button class="chip" data-fill="Explain Newton's third law simply">Explain Newton's 3rd law</button>
+        </div>
+      </div>` : `
+      <div class="empty-state">
+        <h2>What are we studying today?</h2>
+        <p>Ask for notes on a topic, a specimen paper, or a full school project (with certificate, index, and bibliography). Answers come numbered, colour-coded and explained, ready to save as a PDF. Have a doubt instead? Switch to "Doubt Chat" above.</p>
+        <div class="chips">
+          <button class="chip" data-fill="Make notes on Photosynthesis for Class 10 Science">Notes on Photosynthesis</button>
+          <button class="chip" data-fill="Give me a specimen paper for Class 10 Maths, Chapter: Trigonometry">Trigonometry specimen paper</button>
+          <button class="chip" data-fill="Make a school project on the Solar System">School project on Solar System</button>
+          <button class="chip" data-fill="Make notes on Newton's laws of motion">Notes on Newton's laws</button>
+        </div>
+      </div>`;
+    wrap.querySelectorAll(".chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        document.getElementById("promptInput").value = chip.dataset.fill;
+        document.getElementById("promptInput").focus();
+      });
+    });
+    return;
+  }
+  wrap.innerHTML = "";
+  chat.messages.forEach((m, idx) => {
+    const row = document.createElement("div");
+    row.className = "msg-row " + (m.role === "user" ? "user" : "ai");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    if(m.role === "assistant"){
+      const label = document.createElement("span");
+      label.className = "ai-label";
+      label.textContent = "Notebook";
+      bubble.appendChild(label);
+
+      const body = document.createElement("div");
+      if(m.sheet){
+        body.innerHTML = buildSheetHTML(m.sheet);
+      } else {
+        // Doubt-chat replies may use **bold** — render it, don't show raw asterisks.
+        body.innerHTML = formatContent(m.content);
+      }
+      bubble.appendChild(body);
+
+      if(m.sheet){
+        const actions = document.createElement("div");
+        actions.className = "bubble-actions";
+        const dl = document.createElement("button");
+        dl.textContent = "Download as PDF";
+        dl.addEventListener("click", () => printSheet(m.sheet));
+        actions.appendChild(dl);
+        bubble.appendChild(actions);
+      }
+    } else {
+      bubble.textContent = m.content;
+    }
+    row.appendChild(bubble);
+    wrap.appendChild(row);
+  });
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function showTyping(){
+  const wrap = document.getElementById("messages");
+  const row = document.createElement("div");
+  row.className = "msg-row ai";
+  row.id = "typingRow";
+  row.innerHTML = `<div class="bubble"><span class="ai-label">Notebook</span><div class="typing"><span></span><span></span><span></span></div><p id="typingStatus" class="typing-status"></p></div>`;
+  wrap.appendChild(row);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+function setTypingStatus(text){
+  const el = document.getElementById("typingStatus");
+  if(el) el.textContent = text;
+}
+function hideTyping(){
+  const el = document.getElementById("typingRow");
+  if(el) el.remove();
+}
+
+/* ---------- API call ----------
+   This calls OUR OWN backend (backend/api/generate.js), which holds the
+   OpenRouter key safely as a server-side environment variable. The key
+   never appears anywhere in this file or in the browser. */
+/* ---------- multi-agent generation ----------
+   1. PLAN: one fast call decides the document structure (how many
+      sections, what each covers) — no content yet.
+   2. SECTIONS: every section is then generated in PARALLEL (not one
+      after another), so a 20-section document takes roughly as long as
+      ONE section, not twenty.
+   3. Each section is validated on its own; if it fails, it's retried
+      once with a different fallback model before giving up on just
+      that section (the rest of the document isn't affected).
+   4. Numbering is assigned by the FRONTEND, never trusted from the AI —
+      this eliminates the numbering bugs we used to hit entirely. */
+
+async function callAgent(mode, userRequest, extra){
+  extra = extra || {};
+  const res = await fetch("/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      mode,
+      userRequest,
+      isContinuation: extra.isContinuation,
+      sectionHeading: extra.sectionHeading,
+      type: extra.type,
+      startingQuestionNumber: extra.startingQuestionNumber,
+      questionCount: extra.questionCount,
+      markScheme: extra.markScheme,
+      continueFrom: extra.continueFrom,
+      sections: extra.sections,
+      premiumToken: localStorage.getItem("nb_premium_token") || undefined
+    })
+  });
+
+  let data;
+  try{
+    data = await res.json();
+  } catch(parseErr){
+    throw new Error("The server took too long to respond. Try a shorter request, or try again in a moment.");
+  }
+  if(!res.ok){
+    throw new Error(data.error || `Server error (${res.status})`);
+  }
+  if(!data.content) throw new Error("Empty response from model.");
+  return data;
+}
+
+const MAX_SECTION_CONTINUATIONS = 2;
+
+/* Calls one attempt for a section, automatically continuing (up to
+   MAX_SECTION_CONTINUATIONS extra calls) if the model got cut off
+   mid-way — this is what was causing dropped questions, incomplete
+   answer keys, and content that trailed off unfinished. Each call to
+   callAgent already tries a whole CHAIN of providers server-side (see
+   api/providers.js) — OpenRouter, Groq, Gemini, NVIDIA — so a single
+   "attempt" here already has several independent AI providers behind it. */
+async function generateSectionAttempt(userRequest, heading, type, startingQuestionNumber, questionCount, markScheme){
+  let fullText = "";
+  let continueFrom;
+
+  for(let round = 0; round <= MAX_SECTION_CONTINUATIONS; round++){
+    const data = await callAgent('section', userRequest, {
+      isContinuation: true, sectionHeading: heading, type,
+      startingQuestionNumber, questionCount, markScheme, continueFrom
+    });
+    fullText += data.content;
+    if(data.finishReason !== "length") break; // finished naturally
+    continueFrom = fullText;
+  }
+  return fullText;
+}
+
+/* Verifies a section actually has real, complete content — the check
+   differs by section type:
+   - QUESTION sections (specimen papers): every numbered question in the
+     assigned range (Q<startingQuestionNumber>..Q<start+count-1>) must
+     actually appear in the text — not just "the AI said it's done".
+   - NOTES sections (questionCount 0): there's no question number to
+     count, so this used to just return true unconditionally — which
+     meant a thin, cut-off, or placeholder-y notes section NEVER got
+     flagged for a repair pass. Now it's checked for a sane minimum
+     length and for common AI placeholder patterns ("...and so on",
+     "[continue similarly]", trailing "etc.") that mean the model gave up
+     early instead of actually finishing the topic. */
+const MIN_NOTES_SECTION_CHARS = 180;
+const PLACEHOLDER_PATTERNS = [
+  /\[\s*(continue|more|etc)/i,
+  /\band so on\.?\s*$/i,
+  /\bcontinue(d)? (similarly|in the same way)\b/i,
+  /\betc\.?\s*$/i,
+  /\(remaining .* similarly\)/i,
+];
+function isNotesContentSufficient(content){
+  const text = (content || "").trim();
+  if(text.length < MIN_NOTES_SECTION_CHARS) return false;
+  return !PLACEHOLDER_PATTERNS.some(p => p.test(text));
+}
+
+function isSectionComplete(content, startingQuestionNumber, questionCount){
+  if(!questionCount || questionCount <= 0) return isNotesContentSufficient(content);
+  const found = new Set();
+  const re = /\bQ\.?\s*(\d+)\b/gi;
+  let m;
+  while((m = re.exec(content)) !== null){
+    found.add(parseInt(m[1], 10));
+  }
+  for(let n = startingQuestionNumber; n < startingQuestionNumber + questionCount; n++){
+    if(!found.has(n)) return false;
+  }
+  return true;
+}
+
+function countQuestionsFound(content, startingQuestionNumber, questionCount){
+  if(!questionCount || questionCount <= 0) return 0;
+  const found = new Set();
+  const re = /\bQ\.?\s*(\d+)\b/gi;
+  let m;
+  while((m = re.exec(content)) !== null){
+    const n = parseInt(m[1], 10);
+    if(n >= startingQuestionNumber && n < startingQuestionNumber + questionCount) found.add(n);
+  }
+  return found.size;
+}
+
+/* One score to rank "how complete is this attempt" that works for BOTH
+   section types: for question sections, how many of the assigned
+   questions were actually found; for notes sections, the content length
+   (a placeholder-flagged attempt still gets ranked below a longer, clean
+   one via isNotesContentSufficient's own check happening first in
+   generateSection). This is what lets the repair-round comparison below
+   only replace a section with a genuinely BETTER attempt, never a worse
+   one, for notes just as much as for specimen papers. */
+function sectionScore(content, startingQuestionNumber, questionCount){
+  if(questionCount > 0) return countQuestionsFound(content, startingQuestionNumber, questionCount);
+  return (content || "").trim().length;
+}
+
+/* Generates ONE chunk worth of a section (a full section if it's small,
+   or one slice of question numbers if it's being chunked — see
+   generateSection below). Each of these FRONTEND_ATTEMPTS tries the chunk
+   again from scratch; every single attempt already runs the FULL
+   server-side provider chain (OpenRouter → Grok → Groq → Gemini → NVIDIA →
+   OpenRouter fallback — see api/providers.js). */
+const SECTION_FRONTEND_ATTEMPTS = 3;
+async function generateSectionChunk(userRequest, heading, type, startingQuestionNumber, questionCount, markScheme){
+  let bestIncomplete = null;
+  let bestScore = -1;
+  for(let attempt = 0; attempt < SECTION_FRONTEND_ATTEMPTS; attempt++){
+    try{
+      const raw = await generateSectionAttempt(userRequest, heading, type, startingQuestionNumber, questionCount, markScheme);
+      const parsed = extractJSON(raw);
+      if(parsed && parsed.heading && parsed.content){
+        if(isSectionComplete(parsed.content, startingQuestionNumber, questionCount)){
+          return parsed;
+        }
+        const score = sectionScore(parsed.content, startingQuestionNumber, questionCount);
+        if(score > bestScore){
+          bestScore = score;
+          bestIncomplete = parsed;
+        }
+      }
+    } catch(e){
+      // try again — a fresh attempt runs the whole provider chain again
+    }
+  }
+  if(bestIncomplete) return { ...bestIncomplete, _incomplete: true }; // better than nothing, but flagged for the final check
+  return { heading, explanation: "", content: "", _failed: true };
+}
+
+// A single call asked to write 15+ full MCQs (or a complete answer key
+// with worked solutions for 15+ questions) in one JSON blob has a MUCH
+// higher chance of getting cut off mid-string and becoming permanently
+// unparseable (even after the continuation logic tries to stitch it back
+// together) than several small calls of a handful of questions each. This
+// was the actual cause of whole sections — like "Section A — MCQs" and
+// its "Answer Key" — coming back completely empty: one giant call kept
+// failing the same way on every attempt AND every repair round, instead
+// of just losing a few questions worth of content.
+const QUESTION_CHUNK_SIZE = 5;
+
+/* Generates one PLANNED section. Small/non-question sections go straight
+   to generateSectionChunk. Heavy question sections (MCQ blocks, full
+   answer keys) are split into independent chunks of QUESTION_CHUNK_SIZE
+   questions each, generated and verified IN PARALLEL, then stitched back
+   together — so a failure only ever costs a few questions, never the
+   whole section, and the resulting smaller per-call output is far less
+   likely to truncate in the first place. */
+async function generateSection(userRequest, section, type, startingQuestionNumber, markScheme){
+  const heading = section.heading || section;
+  const questionCount = section.questionCount || 0;
+
+  if(questionCount <= QUESTION_CHUNK_SIZE){
+    return generateSectionChunk(userRequest, heading, type, startingQuestionNumber, questionCount, markScheme);
+  }
+
+  const chunkRanges = [];
+  for(let start = startingQuestionNumber; start < startingQuestionNumber + questionCount; start += QUESTION_CHUNK_SIZE){
+    chunkRanges.push({ start, count: Math.min(QUESTION_CHUNK_SIZE, startingQuestionNumber + questionCount - start) });
+  }
+  const chunks = await Promise.all(
+    chunkRanges.map(r => generateSectionChunk(userRequest, heading, type, r.start, r.count, markScheme))
+  );
+
+  const firstWithExplanation = chunks.find(c => c.explanation);
+  const firstWithDiagram = chunks.find(c => c.diagram);
+  const combined = {
+    heading,
+    explanation: firstWithExplanation ? firstWithExplanation.explanation : "",
+    content: chunks.map(c => c.content).filter(Boolean).join("\n\n"),
+    ...(firstWithDiagram ? { diagram: firstWithDiagram.diagram } : {}),
+  };
+  // The WHOLE combined section is only flagged _failed if EVERY chunk
+  // failed (nothing usable at all) — otherwise it's _incomplete, so the
+  // document-level repair pass targets just the missing chunk's worth of
+  // questions on retry, not the entire section from scratch.
+  if(chunks.every(c => c._failed)) return { heading, explanation: "", content: "", _failed: true };
+  if(chunks.some(c => c._failed || c._incomplete)) return { ...combined, _incomplete: true };
+  return combined;
+}
+
+async function generateDocument(userRequest, onProgress){
+  if(onProgress) onProgress("Planning document structure…");
+  const planData = await callAgent('plan', userRequest, { isContinuation: false });
+  const plan = extractJSON(planData.content);
+  if(!plan || !Array.isArray(plan.sections) || plan.sections.length === 0){
+    throw new Error("Could not plan the document structure. Try rephrasing your request.");
+  }
+
+  // Compute a running "starting question number" per section, so questions
+  // are numbered continuously (Q1, Q2... Q20) across independently
+  // generated sections instead of each one restarting from Q1. Answer-key
+  // sections are special: they don't own new question numbers — they
+  // reference the SAME range as the question section right before them.
+  let runningQuestionNumber = 1;
+  let lastQuestionSectionStart = 1;
+  const sectionsWithOffsets = plan.sections.map(section => {
+    const heading = section.heading || section;
+    const isAnswerKey = /answer key/i.test(heading);
+    const startingQuestionNumber = isAnswerKey ? lastQuestionSectionStart : runningQuestionNumber;
+    if(!isAnswerKey){
+      lastQuestionSectionStart = runningQuestionNumber;
+      runningQuestionNumber += (section.questionCount || 0);
+    }
+    return { section, startingQuestionNumber };
+  });
+
+  if(onProgress) onProgress(`Writing ${plan.sections.length} section${plan.sections.length > 1 ? 's' : ''} in parallel…`);
+  const sectionResults = await Promise.all(
+    sectionsWithOffsets.map(({ section, startingQuestionNumber }) =>
+      generateSection(userRequest, section, plan.type, startingQuestionNumber, plan.markScheme))
+  );
+
+  // ---- CHECKER: verify the assembled document against the plan ----
+  // Sections are flagged _failed (gave up entirely) or _incomplete (best
+  // attempt still missing some questions) by generateSection. Anything
+  // flagged gets a focused repair attempt — this time WITH the context of
+  // what the rest of the document already contains, which the original
+  // parallel pass couldn't have (each section was written independently,
+  // with no visibility into its siblings). This repeats for a few rounds
+  // (not just once) — the document keeps getting re-tried against the plan
+  // until every section is complete, or we run out of repair rounds.
+  const MAX_REPAIR_ROUNDS = 2;
+  for(let round = 0; round < MAX_REPAIR_ROUNDS; round++){
+    const problemIndexes = sectionResults
+      .map((s, i) => (s._failed || s._incomplete) ? i : -1)
+      .filter(i => i !== -1);
+    if(problemIndexes.length === 0) break;
+
+    if(onProgress) onProgress(`Double-checking ${problemIndexes.length} section${problemIndexes.length > 1 ? 's' : ''} against the plan (round ${round + 1})…`);
+    const repaired = await Promise.all(problemIndexes.map(async (i) => {
+      const { section, startingQuestionNumber } = sectionsWithOffsets[i];
+      const otherContext = sectionResults
+        .filter((s, j) => j !== i && s && !s._failed)
+        .map(s => `- ${s.heading}: ${(s.explanation || s.content || "").slice(0, 100)}`)
+        .join("\n");
+      const enrichedRequest = `${userRequest}\n\n(Repair pass: the rest of this document already exists. Other sections so far:\n${otherContext}\n\nWrite "${section.heading || section}" so it's fully complete and consistent with them — this is the one section still missing/incomplete.)`;
+      return generateSection(enrichedRequest, section, plan.type, startingQuestionNumber, plan.markScheme);
+    }));
+    problemIndexes.forEach((i, k) => {
+      // keep the repair only if it's genuinely better (not itself failed),
+      // and only if it covers as many or more questions than what we had
+      const prev = sectionResults[i];
+      const prevScore = prev._incomplete ? sectionScore(prev.content, sectionsWithOffsets[i].startingQuestionNumber, sectionsWithOffsets[i].section.questionCount || 0) : -1;
+      const nextScore = repaired[k]._incomplete ? sectionScore(repaired[k].content, sectionsWithOffsets[i].startingQuestionNumber, sectionsWithOffsets[i].section.questionCount || 0) : (repaired[k]._failed ? -1 : Infinity);
+      if(!repaired[k]._failed && nextScore >= prevScore){
+        sectionResults[i] = repaired[k];
+      }
+    });
+  }
+
+  // ---- JUDGE AGENT: an independent AI re-reads the whole document ----
+  // The repair rounds above only catch mechanical problems (missing
+  // question numbers, obviously-thin notes). This is a genuine second
+  // opinion: a separate AI call reads every section against the ORIGINAL
+  // topic and flags anything a human reviewer would catch — content that
+  // quietly drifted off-topic, a section that trails off without really
+  // finishing, or a stray placeholder line. Flagged sections are
+  // regenerated with the judge's specific complaint as feedback, then the
+  // judge reviews again. This can't loop forever (a model that's never
+  // satisfied would hang the request/run up costs), so it's capped at
+  // MAX_JUDGE_ROUNDS — in practice a genuinely broken section is fixed
+  // well before that.
+  const MAX_JUDGE_ROUNDS = 2;
+  for(let round = 0; round < MAX_JUDGE_ROUNDS; round++){
+    let verdict;
+    try{
+      if(onProgress) onProgress(`Reviewing the full document for gaps or off-topic content (check ${round + 1})…`);
+      const judgeData = await callAgent('judge', userRequest, {
+        isContinuation: true, markScheme: plan.markScheme,
+        sections: sectionResults.map(s => ({ heading: s.heading, content: s.content }))
+      });
+      verdict = extractJSON(judgeData.content);
+    } catch(e){
+      break; // the judge itself is just a safety net — if IT fails, ship what we have rather than blocking the whole document
+    }
+    if(!verdict || verdict.clear || !Array.isArray(verdict.issues) || verdict.issues.length === 0) break;
+
+    const flagged = verdict.issues.filter(iss => Number.isInteger(iss.index) && sectionsWithOffsets[iss.index]);
+    if(flagged.length === 0) break;
+
+    if(onProgress) onProgress(`Fixing ${flagged.length} flagged section${flagged.length > 1 ? 's' : ''}…`);
+    const fixes = await Promise.all(flagged.map(async (iss) => {
+      const { section, startingQuestionNumber } = sectionsWithOffsets[iss.index];
+      const enrichedRequest = `${userRequest}\n\n(Quality-check pass: an independent reviewer flagged this exact problem with "${section.heading || section}": ${iss.problem} — ${iss.note}\nRewrite this section correctly, fixing exactly that problem, while staying consistent with the rest of the document.)`;
+      return generateSection(enrichedRequest, section, plan.type, startingQuestionNumber, plan.markScheme);
+    }));
+    flagged.forEach((iss, k) => {
+      if(!fixes[k]._failed) sectionResults[iss.index] = fixes[k]; // a judge-driven rewrite replaces even an already-"complete" section, since the problem it's fixing (e.g. off-topic) isn't something the mechanical checks above can see
+    });
+  }
+
+  const entries = sectionResults.map((s, i) => ({
+    number: i + 1,
+    heading: s.heading || (plan.sections[i].heading || plan.sections[i]),
+    explanation: s.explanation || "",
+    // Only show the "couldn't be generated" placeholder for a section that
+    // is STILL empty after every attempt, every chunk, and every repair
+    // round — never inject it mid-content, since a chunked section may
+    // have most of its real content plus one missing chunk.
+    content: (s.content && s.content.trim()) || "(This part couldn't be generated after several attempts — try regenerating the whole document, or ask again with a smaller scope.)",
+    ...(s.diagram ? { diagram: s.diagram } : {})
+  }));
+
+  return { type: (plan.type === 'specimen' || plan.type === 'project') ? plan.type : 'notes', title: plan.title || userRequest, entries };
+}
+
+/* ---------- doubt chat (separate from notes/paper generation) ----------
+   Plain conversational call to /api/chat — never touches the plan/section
+   pipeline, so a doubt never accidentally turns into a PDF-planning run. */
+async function callChatAgent(message, history){
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message, history,
+      premiumToken: localStorage.getItem("nb_premium_token") || undefined
+    })
+  });
+  let data;
+  try{ data = await res.json(); }
+  catch(parseErr){ throw new Error("The server took too long to respond. Try again in a moment."); }
+  if(!res.ok) throw new Error(data.error || `Server error (${res.status})`);
+  if(!data.reply) throw new Error("Empty response from model.");
+  return data.reply;
+}
+
+async function sendMessage(){
+  const mode = getChatMode();
+  if(getCount(mode) >= currentDailyLimit(mode)) return;
+
+  const input = document.getElementById("promptInput");
+  const text = input.value.trim();
+  if(!text) return;
+
+  if(!getActiveChat()) newChat(mode);
+  const chat = getActiveChat();
+  if(chat.messages.length === 0){
+    chat.title = text.slice(0, 42) + (text.length > 42 ? "…" : "");
+  }
+  chat.messages.push({ role: "user", content: text });
+  saveChats(chats);
+  input.value = "";
+  autoGrow(input);
+  renderChatList();
+  renderMessages();
+
+  document.getElementById("sendBtn").disabled = true;
+  showTyping();
+
+  try{
+    if(mode === "chat"){
+      setTypingStatus("Thinking…");
+      // Last few turns as plain history for conversational context.
+      const history = chat.messages
+        .slice(0, -1)
+        .filter(m => !m.sheet)
+        .slice(-12)
+        .map(m => ({ role: m.role, content: m.content }));
+      const reply = await callChatAgent(text, history);
+      chat.messages.push({ role: "assistant", content: reply });
+      saveChats(chats);
+      incCount("chat");
+    } else {
+      const sheet = await generateDocument(text, (status) => setTypingStatus(status));
+      const problem = validateSheet(sheet);
+
+      chat.messages.push(!problem
+        ? { role: "assistant", sheet, content: JSON.stringify(sheet) }
+        : { role: "assistant", content: "⚠ The document came back incomplete. Please try again." });
+      saveChats(chats);
+      incCount("notes");
+    }
+  } catch(err){
+    const msg = err.message && err.message.toLowerCase().includes("limit")
+      ? "⚠ " + err.message
+      : "⚠ " + (err.message || "Something went wrong. Please try again.");
+    chat.messages.push({ role: "assistant", content: msg });
+    saveChats(chats);
+  } finally {
+    hideTyping();
+    renderMessages();
+    renderQuota();
+  }
+}
+
+/* ---------- misc UI ---------- */
+function autoGrow(el){
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 160) + "px";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if(chats.length > 0) activeId = chats[0].id;
+  renderChatList();
+  renderMessages();
+  renderQuota();
+  renderModeSwitch();
+});
+
+document.getElementById("newChatBtn").addEventListener("click", () => {
+  newChat(getChatMode());
+  if(window.innerWidth <= 720) document.getElementById("sidebar").classList.add("collapsed");
+});
+
+/* Switching mode mid-thread would mix notes-generation and doubt-chat
+   history formats, so: if the current chat is empty, just relabel it;
+   otherwise start a fresh chat in the chosen mode. */
+function setMode(mode){
+  const chat = getActiveChat();
+  if(!chat || chat.messages.length > 0){
+    newChat(mode);
+  } else {
+    chat.mode = mode;
+    saveChats(chats);
+  }
+  renderModeSwitch();
+  renderMessages();
+  renderQuota();
+}
+document.getElementById("modeNotesBtn").addEventListener("click", () => setMode("notes"));
+document.getElementById("modeChatBtn").addEventListener("click", () => setMode("chat"));
+document.getElementById("menuBtn").addEventListener("click", () => {
+  document.getElementById("sidebar").classList.toggle("collapsed");
+});
+document.addEventListener("click", (e) => {
+  if(e.target.closest("#closeSidebarBtn") || e.target.closest("#sidebarBackdrop")){
+    document.getElementById("sidebar").classList.add("collapsed");
+  }
+});
+document.getElementById("clearAllBtn").addEventListener("click", () => {
+  if(confirm("Delete all saved chats on this device?")){
+    chats = [];
+    saveChats(chats);
+    activeId = null;
+    renderChatList();
+    renderMessages();
+  }
+});
+
+/* ---------- Help & Feedback modal ---------- */
+function openHelpModal(){
+  document.getElementById("helpModal").classList.add("visible");
+  document.getElementById("helpBackdrop").classList.add("visible");
+}
+function closeHelpModal(){
+  document.getElementById("helpModal").classList.remove("visible");
+  document.getElementById("helpBackdrop").classList.remove("visible");
+}
+document.getElementById("helpBtn").addEventListener("click", openHelpModal);
+document.getElementById("closeHelpBtn").addEventListener("click", closeHelpModal);
+document.getElementById("helpBackdrop").addEventListener("click", closeHelpModal);
+
+document.getElementById("submitFeedbackBtn").addEventListener("click", async () => {
+  const textEl = document.getElementById("feedbackText");
+  const contactEl = document.getElementById("feedbackContact");
+  const btn = document.getElementById("submitFeedbackBtn");
+  const msg = document.getElementById("feedbackMsg");
+  const message = textEl.value.trim();
+  if(!message){ msg.textContent = "Write something first."; msg.className = "err"; return; }
+
+  btn.disabled = true;
+  btn.textContent = "Sending…";
+  msg.textContent = "";
+  msg.className = "";
+
+  try{
+    const res = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "submit", message, contact: contactEl.value.trim() })
+    });
+    const data = await res.json();
+    if(!res.ok){
+      msg.textContent = data.error || "Something went wrong.";
+      msg.className = "err";
+    } else {
+      msg.textContent = "Thanks — feedback sent!";
+      msg.className = "ok";
+      textEl.value = "";
+      contactEl.value = "";
+    }
+  } catch(err){
+    msg.textContent = "Could not reach the server. Try again.";
+    msg.className = "err";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Send";
+  }
+});
+
+document.getElementById("sendBtn").addEventListener("click", sendMessage);
+const promptInput = document.getElementById("promptInput");
+promptInput.addEventListener("input", () => autoGrow(promptInput));
+promptInput.addEventListener("keydown", (e) => {
+  if(e.key === "Enter" && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+if(window.innerWidth <= 720) document.getElementById("sidebar").classList.add("collapsed");
+
+/* ---------- PDF export ----------
+   Uses the browser's own print dialog (Save as PDF) instead of any
+   third-party library — this is the most reliable option across devices,
+   since every mobile and desktop browser already supports it natively. */
+function printSheet(sheet){
+  const printWin = window.open("", "_blank");
+  if(!printWin){
+    alert("Please allow pop-ups for this site to download the PDF.");
+    return;
+  }
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>${escapeHTML(sheet.title)}</title>
+<style>
+  @page{ margin: 0.6in; }
+  /* Forces the browser to actually print background colours (section
+     accent stripe, coloured number badges, formula boxes, highlighted
+     overview/revision boxes) instead of silently stripping them down to
+     black-and-white text on "Save as PDF" — this is what was making the
+     downloaded PDF look flat/colourless even though the on-screen preview
+     was colourful. Chrome/Edge/Firefox all still require the person to
+     leave "Background graphics" ticked in the print dialog — this CSS is
+     what makes that checkbox actually take effect. */
+  *{
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+  body{
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #23301F;
+    margin: 0;
+    padding: 0.3in;
+    background: #fff;
+  }
+  .sheet-doc{ padding-top: 4px; }
+  .sheet-gradient-bar{ height: 6px; margin-bottom: 14px; border-radius: 3px; }
+  .sheet-title{
+    font-size: 22px; font-weight: bold; margin: 0 0 16px;
+    padding-bottom: 10px; border-bottom: 3px solid #23301F;
+  }
+  .sheet-entry{
+    display: flex; gap: 12px; margin-bottom: 18px; padding-bottom: 16px;
+    border-bottom: 1px solid #DED4B8; border-left: 3px solid #E7C9A0;
+    padding-left: 10px; page-break-inside: avoid;
+  }
+  .sheet-num{
+    min-width: 26px; height: 26px; background: #B8722E; color: #fff;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 13px; flex-shrink: 0;
+  }
+  .sheet-heading{ font-size: 15px; font-weight: bold; margin: 0 0 4px; }
+  .sheet-explain{ font-size: 10px; text-transform: uppercase; color: #B8722E; margin: 0 0 6px; letter-spacing: 0.4px; }
+  .sheet-content{ font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; }
+  .formula-box{ display: inline-block; background: #E7C9A0; color: #5A3B18; font-weight: bold; padding: 3px 8px; border-radius: 4px; margin: 3px 0; }
+  .sheet-diagram{ margin-top: 8px; padding: 8px; background: #FBF7EC; border: 1px solid #DED4B8; border-radius: 6px; max-width: 380px; }
+  .sheet-diagram svg{ width: 100%; height: auto; }
+  strong{ font-weight: bold; }
+  .sheet-certificate{ display: block; border: none; padding: 0 0 18px; margin-bottom: 18px; page-break-inside: avoid; }
+  .sheet-certificate-inner{ border: 3px double; border-radius: 8px; padding: 32px 22px; text-align: center; }
+  .sheet-certificate-title{ font-size: 24px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin: 0 0 16px; }
+  .sheet-certificate-seal{ width: 44px; height: 44px; border-radius: 50%; border: 2px solid; display: flex; align-items: center; justify-content: center; font-size: 18px; margin: 0 auto 16px; }
+  .sheet-certificate-content{ font-size: 14px; line-height: 2; white-space: pre-wrap; max-width: 440px; margin: 0 auto; }
+</style>
+</head>
+<body>${buildSheetHTML(sheet)}</body>
+</html>`;
+  printWin.document.open();
+  printWin.document.write(html);
+  printWin.document.close();
+  printWin.onload = () => {
+    printWin.focus();
+    printWin.print();
+  };
+}
+</script>
+</body>
+</html>
